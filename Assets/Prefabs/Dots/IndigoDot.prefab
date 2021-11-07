@@ -99,3 +99,4 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   xIndex: 0
   yIndex: 0
+  matchValue: 3

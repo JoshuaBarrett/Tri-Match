@@ -10,7 +10,21 @@ public class GamePiece : MonoBehaviour
     Board m_board;
 
     private bool m_isMoving = false;
-                
+
+    public MatchValue matchValue;
+    public enum MatchValue
+    {
+        Yellow,
+        Blue,
+        Magenta,
+        Indigo,
+        Green,
+        Teal,
+        Red,
+        Cyan,
+        Wild
+    }
+
     void Start()
     {
         
