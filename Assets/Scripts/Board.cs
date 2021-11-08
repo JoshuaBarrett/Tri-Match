@@ -27,10 +27,8 @@ public class Board : MonoBehaviour
         m_allGamePieces = new GamePiece[this.width, this.height];
         this.SetupTiles();
         this.SetupCamera();
-        this.FillRandom();
-        this.HighlightMatches();
+        this.FillRandom();        
     }
-
 
     void Update()
     {
@@ -136,11 +134,34 @@ public class Board : MonoBehaviour
 
     void SwitchTiles(Tile clickedTile, Tile targetTile)
     {
+        StartCoroutine(SwitchTilesRoutine(clickedTile, targetTile));
+    }
+
+    IEnumerator SwitchTilesRoutine(Tile clickedTile, Tile targetTile)
+    {
         GamePiece clickedPiece = m_allGamePieces[clickedTile.xIndex, clickedTile.yIndex];
         GamePiece targetPiece = m_allGamePieces[targetTile.xIndex, targetTile.yIndex];
-
+                
         clickedPiece.Move(targetPiece.xIndex, targetPiece.yIndex, swapTime);
-        targetPiece.Move(clickedPiece.xIndex, clickedPiece.yIndex, swapTime);        
+        targetPiece.Move(clickedPiece.xIndex, clickedPiece.yIndex, swapTime);
+
+        yield return new WaitForSeconds(swapTime);
+
+        List<GamePiece> clickedPieceMatches = this.FindMatchesAt(clickedTile.xIndex, clickedTile.yIndex);
+        List<GamePiece> targetPieceMatches = this.FindMatchesAt(targetTile.xIndex, targetTile.yIndex);
+
+        if (clickedPieceMatches.Count == 0 && targetPieceMatches.Count == 0)
+        {
+            clickedPiece.Move(clickedTile.xIndex, clickedTile.yIndex, swapTime/2);
+            targetPiece.Move(targetTile.xIndex, targetTile.yIndex, swapTime/2);
+
+            yield return new WaitForSeconds(swapTime / 2);
+        }
+        else
+        {
+            this.ClearPieceAt(clickedPieceMatches);
+            this.ClearPieceAt(targetPieceMatches);
+        }       
     }
 
     bool IsNextTo(Tile start, Tile end)
@@ -184,7 +205,10 @@ public class Board : MonoBehaviour
             }
 
             GamePiece nextPiece = m_allGamePieces[nextX, nextY];
-            if (nextPiece.matchValue == startPiece.matchValue && !matches.Contains(nextPiece))
+            if (nextPiece == null)
+            {
+                break;
+            } else if (nextPiece.matchValue == startPiece.matchValue && !matches.Contains(nextPiece))
             {
                 matches.Add(nextPiece);
             }
@@ -218,7 +242,7 @@ public class Board : MonoBehaviour
         List<GamePiece> combinedMatches = upwardMatches.Union(downwardMatches).ToList();
         return combinedMatches.Count >= minLenth ? combinedMatches : null;
     }
-    List<GamePiece> FindHorizontalMatches(int startX, int startY, int minLenth = 3)
+    List<GamePiece> FindHorizontalMatches(int startX, int startY, int minLength = 3)
     {
         List<GamePiece> rightMatches = this.FindMatches(startX, startY, new Vector2(1, 0), 2);
         List<GamePiece> leftMatches = this.FindMatches(startX, startY, new Vector2(-1, 0), 2);
@@ -233,7 +257,7 @@ public class Board : MonoBehaviour
         }
 
         List<GamePiece> combinedMatches = rightMatches.Union(leftMatches).ToList();
-        return combinedMatches.Count >= minLenth ? combinedMatches : null;
+        return combinedMatches.Count >= minLength ? combinedMatches : null;
     }
 
     void HighlightMatches()
@@ -242,33 +266,86 @@ public class Board : MonoBehaviour
         {
             for (int j=0; j<height; j++)
             {
-                SpriteRenderer spriteRenderer = m_allTiles[i, j].GetComponent<SpriteRenderer>();
-                spriteRenderer.color = new Color(spriteRenderer.color.r, spriteRenderer.color.g, spriteRenderer.color.b, 0);
-
-                var horizontalMatches = this.FindHorizontalMatches(i, j, 3);
-                var verticalMatches = this.FindVerticalMatches(i, j, 3);
-
-                if (horizontalMatches == null)
-                {
-                    horizontalMatches = new List<GamePiece>();
-                }
-
-                if (verticalMatches == null)
-                {
-                    verticalMatches = new List<GamePiece>();
-                }
-
-                var combinedMatches = horizontalMatches.Union(verticalMatches).ToList();
-
-                if (combinedMatches.Count > 0)
-                {
-                    foreach (GamePiece piece in combinedMatches)
-                    {
-                        spriteRenderer = m_allTiles[piece.xIndex, piece.yIndex].GetComponent<SpriteRenderer>();
-                        spriteRenderer.color = piece.GetComponent<SpriteRenderer>().color;
-                    }
-                }
+                this.HighlightMatchesAt(i, j);
             }
+        }
+    }
+
+    void HighlightMatchesAt(int x, int y)
+    {
+        this.HighLightTileOff(x, y);
+
+        var allMatches = this.FindMatchesAt(x, y);
+
+        if (allMatches.Count > 0)
+        {
+            foreach (GamePiece piece in allMatches)
+            {
+                this.HighLightTileOn(piece.xIndex, piece.yIndex, piece.GetComponent<SpriteRenderer>().color);
+            }
+        }
+    }
+
+    void HighLightTileOn(int x, int y, Color color)
+    {
+        SpriteRenderer spriteRenderer = m_allTiles[x, y].GetComponent<SpriteRenderer>();
+        spriteRenderer.color = color;
+    }
+
+    void HighLightTileOff(int x, int y)
+    {
+        SpriteRenderer spriteRenderer = m_allTiles[x, y].GetComponent<SpriteRenderer>();
+        spriteRenderer.color = new Color(spriteRenderer.color.r, spriteRenderer.color.g, spriteRenderer.color.b, 0);
+    }
+
+    List<GamePiece> FindMatchesAt(int x, int y, int minLength = 3)
+    {
+        var horizontalMatches = this.FindHorizontalMatches(x, y, minLength);
+        var verticalMatches = this.FindVerticalMatches(x, y, minLength);
+
+        if (horizontalMatches == null)
+        {
+            horizontalMatches = new List<GamePiece>();
+        }
+
+        if (verticalMatches == null)
+        {
+            verticalMatches = new List<GamePiece>();
+        }
+
+        var combinedMatches = horizontalMatches.Union(verticalMatches).ToList();
+        return combinedMatches;
+    }
+
+    void ClearPieceAt(int x, int y)
+    {
+        GamePiece pieceToClear = m_allGamePieces[x, y];
+
+        if (pieceToClear != null)
+        {
+            m_allGamePieces[x, y] = null;
+            Destroy(pieceToClear.gameObject);            
+        }
+
+        HighLightTileOff(x, y);
+    }
+
+    void ClearBoard()
+    {
+        for (int x=0;x<width;x++)
+        {
+            for (int y=0;y<width;y++)
+            {
+                this.HighLightTileOff(x, y);
+            }
+        }
+    }
+
+    void ClearPieceAt(List<GamePiece> gamePieces)
+    {
+        foreach (GamePiece piece in gamePieces)
+        {
+            this.ClearPieceAt(piece.xIndex, piece.yIndex);
         }
     }
 }
