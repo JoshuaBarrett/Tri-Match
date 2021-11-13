@@ -52,7 +52,7 @@ public class GamePiece : MonoBehaviour
         if (!this.m_isMoving)
         {
             StartCoroutine(this.MoveRoutine(new Vector3(destX, destY, 0), timeToMove));
-        }        
+        }
     }
 
     IEnumerator MoveRoutine(Vector3 destination, float timeToMove)
@@ -69,17 +69,17 @@ public class GamePiece : MonoBehaviour
             {
                 reachedDestination = true;
                 m_board.PlaceGamePiece(this, (int)destination.x, (int)destination.y);
-                break;
+                break;                
             }
 
             elapsedTime += Time.deltaTime;
-            float t = elapsedTime / timeToMove;
+            float t = Mathf.Clamp(elapsedTime / timeToMove, 0, 1);
             t = t * t * (3 - 2 * t);
             this.transform.position = Vector3.Lerp(startPosition, destination, t);
 
             yield return null;
         }
-        this.m_isMoving = false;
+        this.m_isMoving = false;        
     }
 
     public void SetCoord(int x, int y)

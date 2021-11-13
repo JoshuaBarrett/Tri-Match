@@ -27,7 +27,7 @@ public class Board : MonoBehaviour
         m_allGamePieces = new GamePiece[this.width, this.height];
         this.SetupTiles();
         this.SetupCamera();
-        this.FillRandom();        
+        this.FillBoard();        
     }
 
     void Update()
@@ -79,10 +79,13 @@ public class Board : MonoBehaviour
         
         if (this.IsWithinBounds(x,y))
         {
+
             m_allGamePieces[x, y] = gamePiece;
+            Debug.Log("Placing Game piece");
         }
         
         gamePiece.SetCoord(x, y);
+
     }
 
     bool IsWithinBounds(int x, int y)
@@ -90,18 +93,51 @@ public class Board : MonoBehaviour
         return (x >= 0 && x < width && y >= 0 && y < height);        
     }
 
-    void FillRandom()
+    void FillBoard()
     {
-        for (int i=0; i<width; i++)
+        for (int x=0; x<width; x++)
         {
-            for (int j=0; j<height; j++)
+            for (int y=0; y<height; y++)
             {
-                GameObject randomPiece = Instantiate(this.GetRandomGamePiece(), Vector3.zero, Quaternion.identity) as GameObject;
-                randomPiece.GetComponent<GamePiece>().Init(this);
-                this.PlaceGamePiece(randomPiece.GetComponent<GamePiece>(), i, j);
-                randomPiece.transform.parent = transform;
+                GamePiece gamePiece = this.FillRandomAt(x, y);
+
+                while (this.HasMatchOnFill(x, y))
+                {
+                    this.ClearPieceAt(x, y);
+                    gamePiece = this.FillRandomAt(x, y);
+                }
             }
         }
+    }
+
+    GamePiece FillRandomAt(int x, int y)
+    {
+        GameObject randomPiece = Instantiate(this.GetRandomGamePiece(), Vector3.zero, Quaternion.identity) as GameObject;
+        randomPiece.transform.parent = transform;
+        
+        GamePiece gamePiece = randomPiece.GetComponent<GamePiece>();
+        gamePiece.Init(this);     
+        this.PlaceGamePiece(gamePiece, x, y);
+        
+        return gamePiece;
+    }
+
+    bool HasMatchOnFill(int x, int y, int minLength = 3)
+    {
+        List<GamePiece> leftMatches = this.FindMatches(x, y, new Vector2(-1, 0), minLength);
+        List<GamePiece> downwardMatches = this.FindMatches(x, y, new Vector2(0, -1), minLength);
+
+        if (leftMatches == null)
+        {
+            leftMatches = new List<GamePiece>();
+        }
+
+        if (downwardMatches == null)
+        {
+            downwardMatches = new List<GamePiece>();
+        }
+
+        return (leftMatches.Count > 0 || downwardMatches.Count > 0);
     }
 
     public void ClickTile(Tile tile)
@@ -109,7 +145,6 @@ public class Board : MonoBehaviour
         if (m_clickedTile == null)
         {
             m_clickedTile = tile;
-            Debug.Log($"Clicked tile: + {tile.name}");
         }
     }
 
@@ -155,12 +190,16 @@ public class Board : MonoBehaviour
             clickedPiece.Move(clickedTile.xIndex, clickedTile.yIndex, swapTime/2);
             targetPiece.Move(targetTile.xIndex, targetTile.yIndex, swapTime/2);
 
-            yield return new WaitForSeconds(swapTime / 2);
+            
         }
         else
         {
+            yield return new WaitForSeconds(swapTime);
             this.ClearPieceAt(clickedPieceMatches);
             this.ClearPieceAt(targetPieceMatches);
+
+            this.CollapseColumn(clickedPieceMatches);
+            this.CollapseColumn(targetPieceMatches);
         }       
     }
 
@@ -347,5 +386,63 @@ public class Board : MonoBehaviour
         {
             this.ClearPieceAt(piece.xIndex, piece.yIndex);
         }
+    }
+
+    List<GamePiece> CollapseColumn(int column, float collapseTime = 0.1f)
+    {
+        List<GamePiece> movingPieces = new List<GamePiece>();
+
+        for (int i=0; i<height-1; i++)
+        {
+            if (m_allGamePieces[column, i] == null)
+            {
+                for (int j=i+1; j<this.height; j++)
+                {
+                    if (m_allGamePieces[column, j] != null)
+                    {
+                        m_allGamePieces[column, j].Move(column, i, collapseTime);
+                        m_allGamePieces[column, i] = m_allGamePieces[column, j];
+                        m_allGamePieces[column, j] = null;
+                        m_allGamePieces[column, i].SetCoord(column, i);
+
+                        if (!movingPieces.Contains(m_allGamePieces[column, i]))
+                        {
+                            movingPieces.Add(m_allGamePieces[column, i]);
+                        }
+
+                        break;
+                    }
+                }
+            }
+        }
+
+        return movingPieces;
+    }
+
+    List<int> GetColumns(List<GamePiece> gamePieces)
+    {
+        return gamePieces.Select(x => x.xIndex).Distinct().ToList();
+    }
+
+    List<GamePiece> CollapseColumn(List<GamePiece> gamePieces)
+    {
+        List<GamePiece> movingPieces = new List<GamePiece>();
+        List<int> columnsToCollapse = this.GetColumns(gamePieces);
+        foreach (int column in columnsToCollapse)
+        {
+            movingPieces.Union(this.CollapseColumn(column));
+        }
+
+        return movingPieces;
+    }
+
+    void ClearAndRefilBoard(List<GamePiece> gamePieces)
+    {
+
+    }
+
+    IEnumerator ClearAndRefillBoardRoutine(List<GamePiece> gamePieces)
+    {
+
     }
 }
